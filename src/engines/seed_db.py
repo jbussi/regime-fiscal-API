@@ -134,26 +134,38 @@ def popular_dados_presumido():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     
-    # Limpa parâmetros anteriores do Lucro Presumido para evitar duplicidade
     cursor.execute("DELETE FROM parametros_fiscais_fixos WHERE regime = 'LUCRO_PRESUMIDO';")
     
-    # Dados Oficiais do Lucro Presumido (Base Federal)
     parametros = [
-        # --- Percentuais de Presunção (A base estimada pelo governo) ---
-        ('LUCRO_PRESUMIDO', 'presuncao_irpj_servicos', 0.3200, 'Percentual de presunção do IRPJ para Prestação de Serviços (32%)'),
-        ('LUCRO_PRESUMIDO', 'presuncao_csll_servicos', 0.3200, 'Percentual de presunção da CSLL para Prestação de Serviços (32%)'),
-        ('LUCRO_PRESUMIDO', 'presuncao_irpj_comercio', 0.0800, 'Percentual de presunção do IRPJ para Comércio/Vendas (8%)'),
-        ('LUCRO_PRESUMIDO', 'presuncao_csll_comercio', 0.1200, 'Percentual de presunção da CSLL para Comércio/Vendas (12%)'),
+        # --- 1. COMÉRCIO, INDÚSTRIA E COMBUSTÍVEIS (Itens 1 a 4, 6, 7, 8, 9) ---
+        ('LUCRO_PRESUMIDO', 'presuncao_irpj_comercio_industria', 0.0800, 'Alíquota IRPJ para Comércio, Indústria, Hospitais e Construção Civil c/ material'),
+        ('LUCRO_PRESUMIDO', 'presuncao_csll_comercio_industria', 0.1200, 'Alíquota CSLL para Comércio, Indústria, Hospitais e Construção Civil c/ material'),
         
-        # --- Alíquotas dos Impostos (Cumulativo) ---
-        ('LUCRO_PRESUMIDO', 'aliquota_pis', 0.0065, 'Alíquota mensal de PIS cumulativo (0.65%)'),
-        ('LUCRO_PRESUMIDO', 'aliquota_cofins', 0.0300, 'Alíquota mensal de COFINS cumulativo (3.00%)'),
-        ('LUCRO_PRESUMIDO', 'aliquota_csll', 0.0900, 'Alíquota padrão de CSLL (9% sobre a base presumida)'),
-        ('LUCRO_PRESUMIDO', 'aliquota_irpj_base', 0.1500, 'Alíquota base de IRPJ (15% sobre a base presumida)'),
+        ('LUCRO_PRESUMIDO', 'presuncao_irpj_combustiveis', 0.0160, 'Alíquota IRPJ para Revenda de Combustíveis e Gás Natural'),
+        ('LUCRO_PRESUMIDO', 'presuncao_csll_combustiveis', 0.1200, 'Alíquota CSLL para Revenda de Combustíveis e Gás Natural'),
+
+        # --- 2. TRANSPORTES (Itens 5 e 10) ---
+        ('LUCRO_PRESUMIDO', 'presuncao_irpj_transporte_cargas', 0.0800, 'Alíquota IRPJ para Transporte de Cargas'),
+        ('LUCRO_PRESUMIDO', 'presuncao_csll_transporte_cargas', 0.1200, 'Alíquota CSLL para Transporte de Cargas'),
         
-        # --- Regra do Adicional de IRPJ ---
-        ('LUCRO_PRESUMIDO', 'aliquota_irpj_adicional', 0.1000, 'Alíquota do Adicional de IRPJ (10% sobre o que exceder o limite)'),
-        ('LUCRO_PRESUMIDO', 'limite_mensal_adicional_irpj', 20000.00, 'Limite de parcela isenta do adicional de IRPJ por mês (R$ 20.000,00)')
+        ('LUCRO_PRESUMIDO', 'presuncao_irpj_transporte_geral', 0.1600, 'Alíquota IRPJ para Transporte de Passageiros / Outros'),
+        ('LUCRO_PRESUMIDO', 'presuncao_csll_transporte_geral', 0.1200, 'Alíquota CSLL para Transporte de Passageiros / Outros'),
+
+        # --- 3. SERVIÇOS EM GERAL E PROFISSÕES REGULAMENTADAS (Itens 11 a 15, 17) ---
+        ('LUCRO_PRESUMIDO', 'presuncao_irpj_servicos_padrao', 0.3200, 'Alíquota IRPJ Padrão para Serviços, Profissões Regulamentadas, Locação e Mão de Obra'),
+        ('LUCRO_PRESUMIDO', 'presuncao_csll_servicos_padrao', 0.3200, 'Alíquota CSLL Padrão para Serviços, Profissões Regulamentadas, Locação e Mão de Obra'),
+        
+        # Regra de incentivo para pequenos prestadores (Item 11)
+        ('LUCRO_PRESUMIDO', 'presuncao_irpj_servicos_reduzido', 0.1600, 'Alíquota IRPJ Reduzida para Serviços Gerais com receita anual até R$ 120.000'),
+        ('LUCRO_PRESUMIDO', 'limite_anual_servicos_reduzido', 120000.00, 'Limite anual de receita bruta para utilizar presunção de IRPJ de 16%'),
+
+        # --- IMPOSTOS DIRETOS E ADICIONAIS (Inalterados) ---
+        ('LUCRO_PRESUMIDO', 'aliquota_pis', 0.0065, 'PIS Cumulativo'),
+        ('LUCRO_PRESUMIDO', 'aliquota_cofins', 0.0300, 'COFINS Cumulativo'),
+        ('LUCRO_PRESUMIDO', 'aliquota_csll', 0.0900, 'Alíquota de CSLL sobre a base'),
+        ('LUCRO_PRESUMIDO', 'aliquota_irpj_base', 0.1500, 'Alíquota base de IRPJ sobre a base'),
+        ('LUCRO_PRESUMIDO', 'aliquota_irpj_adicional', 0.1000, 'Adicional de IRPJ'),
+        ('LUCRO_PRESUMIDO', 'limite_mensal_adicional_irpj', 20000.00, 'Isenção mensal do adicional')
     ]
     
     cursor.executemany("""
@@ -163,9 +175,8 @@ def popular_dados_presumido():
     
     conn.commit()
     conn.close()
-    print("Massa de dados (Seed) do Lucro Presumido carregada com sucesso!")
+    print("Massa de dados do Lucro Presumido atualizada com base na tabela da RFB!")
 
-# Adicione esta função dentro do seu src/engines/seed_db.py
 
 def popular_dados_lucro_real():
     conn = sqlite3.connect(DB_PATH)
@@ -194,6 +205,11 @@ def popular_dados_lucro_real():
         
         # --- Regra de Ativos / CAPEX ---
         ('LUCRO_REAL', 'taxa_depreciacao_mensal_computadores', 0.016667, 'Taxa mensal de depreciação de máquinas e computadores (20% ao ano / 12 meses)')
+
+        # --- Encargos sobre a Folha de Pagamento ---
+        ('LUCRO_REAL', 'aliquota_inss_patronal', 0.2000, 'INSS Patronal sobre a folha de pagamento (20%)'),
+        ('LUCRO_REAL', 'aliquota_rat_terceiros_estimado', 0.0580, 'Estimativa média de RAT + Terceiros/Sistema S (5.8%)'),
+
     ]
     
     cursor.executemany("""
