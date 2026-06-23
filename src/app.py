@@ -1,8 +1,9 @@
-# src/app.py
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 import logging
+from fastapi.responses import RedirectResponse
+from fastapi.openapi.docs import get_redoc_html
 
 # Importando os Schemas atualizados
 from src.models.fiscal_schemas import (
@@ -17,9 +18,10 @@ logging.basicConfig(level=logging.ERROR)
 logger = logging.getLogger("LhamaFiscalAPI")
 
 app = FastAPI(
-    title="Lhama Fiscal API",
+    title="Regime Fiscal API",
     description="Backend de alta performance com tratamento estrito de erros e validação de regras de negócio.",
-    version="1.4.0"
+    version="0.0.0",
+    redoc_url=None
 )
 
 app.add_middleware(
@@ -46,6 +48,20 @@ async def global_exception_handler(request: Request, exc: Exception):
     )
 
 # --- ENDPOINTS COM TRATAMENTO DE ERRO DE NEGÓCIO ---
+
+@app.get("/", tags=["Status"], include_in_schema=False)
+def redirect_to_docs():
+    """Redireciona automaticamente a raiz para a documentação do Swagger."""
+    return RedirectResponse(url="/docs")
+
+@app.get("/redoc", tags=["Status"], include_in_schema=False)
+async def redoc_html():
+    return get_redoc_html(
+        openapi_url=app.openapi_url,  # Ele vai buscar dinamicamente do seu app
+        title=app.title + " - ReDoc",
+        redoc_js_url="https://cdn.jsdelivr.net/npm/redoc@2.1.3/bundles/redoc.standalone.js", # Versão estável fixada
+        redoc_favicon_url="https://fastapi.tiangolo.com/img/favicon.png"
+    )
 
 @app.post("/api/simular/simples", tags=["Simulações Isoladas"], responses=ERROS_DOCUMENTADOS)
 def get_simples(cenario: CenarioSimulacaoInput):
