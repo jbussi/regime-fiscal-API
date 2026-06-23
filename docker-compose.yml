@@ -1,46 +1,15 @@
-version: '3.8'
-
 services:
-  traefik:
-    image: traefik:v2.10
-    container_name: traefik
-    restart: always
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
-      - ./traefik/dynamic_conf.yml:/etc/traefik/dynamic_conf.yml:ro
-      - ./traefik_data/letsencrypt:/letsencrypt
-    networks:
-      - rede_publica
-
   api:
     build: .
-    container_name: lhama_fiscal_api
+    container_name: regime_fiscal_api
     restart: always
+    ports:
+      - "80:8000" # Mapeia a porta 80 da sua máquina para a porta 8000 interna do FastAPI
     volumes:
       - ./database.db:/app/database.db
-    labels:
-      - "traefik.enable=true"
-      
-      # CAPTURA UNIVERSAL: Aceita IP, localhost, domínios de teste ou produção
-      - "traefik.http.routers.api.rule=HostRegexp(`{host:.+}`)"
-      - "traefik.http.routers.api.entrypoints=websecure"
-      - "traefik.http.routers.api.tls.certresolver=meuresolver"
-      
-      # Encadeamento de Middlewares de Controle de Fluxo, Segurança e Conexão
-      - "traefik.http.routers.api.middlewares=limite-conexoes@file,limite-requisicoes@file,cabecalhos-flexiveis@file,compressao-gzip@file"
-      - "traefik.http.services.api.loadbalancer.server.port=8000"
     networks:
-      - rede_publica
-      - rede_interna
-    depends_on:
-      - traefik
+      - rede_local
 
 networks:
-  rede_publica:
-    driver: bridge
-  rede_interna:
+  rede_local:
     driver: bridge
