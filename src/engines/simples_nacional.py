@@ -1,95 +1,91 @@
 import sqlite3
-from typing import Dict, Any
+from src.database.connection import get_db_connection
 
-def calcular_fator_r(folha_acumulada_12m: float, rbt12: float) -> float:
+def calcular_imposto_simples(faturamento_mes: float, rbt12: float, folha_acumulada_12m: float, anexo_escolhido: str) -> dict:
     """
-    Calcula a relação percentual entre a folha de pagamento e o faturamento dos últimos 12 meses.
+    Calcula o imposto do Simples Nacional para qualquer um dos 5 anexos.
+    Aplica a regra do Fator R caso o anexo escolhido seja o III ou o V.
     """
-    if rbt12 <= 0:
-        return 0.0
-    return (folha_acumulada_12m / rbt12) * 100
-
-def obter_faixa_simples(anexo: str, rbt12: float, db_path: str = "database.db") -> Dict[str, Any]:
-    """
-    Busca no banco de dados a alíquota nominal e a parcela a deduzir 
-    correspondente à faixa de faturamento acumulado (RBT12).
-    """
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-    
-    # Query para encontrar a faixa correta com base no RBT12
-    query = """
-        SELECT aliquota_nominal, parcela_a_deduzir, faixa_numero
-        FROM faixas_simples_nacional
-        WHERE anexo = ? 
-          AND ? > limite_inferior 
-          AND ? <= limite_superior
-        LIMIT 1;
-    """
-    
-    cursor.execute(query, (anexo, rbt12, rbt12))
-    row = cursor.fetchone()
-    conn.close()
-    
-    if not row:
-        # Caso o faturamento estoure o limite máximo do Simples (R$ 4.8 milhões)
-        raise ValueError("Faturamento acumulado excede o limite máximo do Simples Nacional (R$ 4,8M).")
-        
-    return {
-        "aliquota_nominal": row[0],
-        "parcela_a_deduzir": row[1],
-        "faixa": row[2]
-    }
-
-def calcular_imposto_simples(
-    faturamento_mes: float, 
-    rbt12: float, 
-    folha_acumulada_12m: float,
-    eh_tecnologia_intelectual: bool = True,
-    db_path: str = "database.db"
-) -> Dict[str, Any]:
-    """
-    Função principal que orquestra o cálculo do Simples Nacional do mês.
-    """
-    # 1. Se o faturamento for zero, o imposto é zero
     if faturamento_mes <= 0:
-        return {"imposto_final": 0.0, "aliquota_efetiva": 0.0, "anexo_utilizado": "N/A", "faixa": 0}
+        return {
+            "imposto_final": 0.0, 
+            "aliquota_efetiva_calculada": 0.0, 
+            "anexo_utilizado": "NENHUM", 
+            "distribuicao": {}
+        }
 
-    # 2. Definição do Anexo (Regra do Fator R para Serviços Intelectuais/TI)
-    if eh_tecnologia_intelectual:
-        fator_r = calcular_fator_r(folha_acumulada_12m, rbt12)
-        anexo = "ANEXO_III" if fator_r >= 28.0 else "ANEXV"
-    else:
-        # Para serviços gerais que não entram no Fator R, costuma ser fixo no Anexo III
-        fator_r = None
-        anexo = "ANEXO_III"
+    # 1. Definição do Anexo Real (Tratamento do Fator R para Serviços Intelectuais)
+    anexo = anexo_escolhido
+    fator_r = 0.0
 
-    # 3. Busca os parâmetros da lei no banco de dados
-    try:
-        dados_faixa = obter_faixa_simples(anexo, rbt12, db_path)
-    except ValueError as e:
-        return {"erro": str(e), "sublimite_estourado": True}
+    if anexo_escolhido in ["ANEXO_III", "ANEXO_V"]:
+        fator_r = (folha_acumulada_12m / rbt12) if rbt12 > 0 else 0.0
+        # Regra de Ouro: Se a folha for >= 28% do faturamento, vai para o Anexo III (mais barato)
+        if fator_r >= 0.28:
+            anexo = "ANEXO_III"
+        else:
+            anexo = "ANEXO_V"
 
-    aliq_nominal = dados_faixa["aliquota_nominal"]
-    deducao = dados_faixa["parcela_a_deduzir"]
+    # 2. Busca a faixa de alíquota nominal e dedução correspondente ao RBT12 no SQLite
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT faixa_numero, aliquota_nominal, parcela_a_deduzir 
+            FROM faixas_simples_nacional
+            WHERE anexo = ? AND ? > limite_inferior AND ? <= limite_superior
+        """, (anexo, rbt12, rbt12))
+        row = cursor.fetchone()
+        
+        # Fallback de segurança: caso ultrapasse o limite máximo da faixa 5 (Teto do Simples)
+        if not row:
+            cursor.execute("""
+                SELECT faixa_numero, aliquota_nominal, parcela_a_deduzir 
+                FROM faixas_simples_nacional 
+                WHERE anexo = ? 
+                ORDER BY faixa_numero DESC LIMIT 1
+            """, (anexo,))
+            row = cursor.fetchone()
 
-    # 4. Cálculo da Alíquota Efetiva (Fórmula da LC 123/06)
-    # Primeira faixa (RBT12 até 180k) não tem dedução, a alíquota efetiva é a própria nominal
-    if dados_faixa["faixa"] == 1:
-        aliquota_efetiva = aliq_nominal
-    else:
-        aliquota_efetiva = ((rbt12 * aliq_nominal) - deducao) / rbt12
+        faixa_numero, aliquota_nominal, parcela_a_deduzir = row
 
-    # 5. Cálculo do valor final a pagar
-    imposto_final = faturamento_mes * aliquota_efetiva
+        # 3. Cálculo da Alíquota Efetiva: ((RBT12 * Alíquota Nominal) - Parcela a Deduzir) / RBT12
+        if rbt12 > 0:
+            aliquota_efetiva = (rbt12 * aliquota_nominal - parcela_a_deduzir) / rbt12
+        else:
+            # Caso a empresa seja nova no mercado e não tenha histórico de 12 meses (RBT12 = 0)
+            aliquota_efetiva = aliquota_nominal
 
+        # Evita distorções matemáticas em faturamentos muito baixos no início da faixa
+        if aliquota_efetiva < 0:
+            aliquota_efetiva = aliquota_nominal
+
+        # Aplicação da alíquota sobre o faturamento do mês atual
+        imposto_final = round(faturamento_mes * aliquota_efetiva, 2)
+
+        # 4. Busca os percentuais de repartição de impostos no banco para detalhamento técnico
+        cursor.execute("""
+            SELECT percentual_irpj, percentual_csll, percentual_pis, percentual_cofins, percentual_cpp, percentual_iss_icms
+            FROM reparticao_simples_nacional 
+            WHERE anexo = ? AND faixa_numero = ?
+        """, (anexo, faixa_numero))
+        rep = cursor.fetchone()
+
+    # Fallback caso a linha de partilha não seja encontrada (Ex: Sublimites da faixa 6)
+    p_ir, p_cs, p_pis, p_cof, p_cpp, p_iss_icms = rep if rep else (0.35, 0.118, 0.0, 0.0, 0.532, 0.0)
+
+    # 5. Retorno estruturado pronto para consumo de gráficos do front-end
     return {
-        "faturamento_mes": round(faturamento_mes, 2),
-        "rbt12": round(rbt12, 2),
-        "fator_r_percentual": round(fator_r, 2) if fator_r is not None else None,
-        "anexo_utilizado": anexo,
-        "faixa_identificada": dados_faixa["faixa"],
-        "aliquota_nominal_lei": round(aliq_nominal * 100, 2),
+        "imposto_final": imposto_final,
         "aliquota_efetiva_calculada": round(aliquota_efetiva * 100, 4),
-        "imposto_final": round(imposto_final, 2)
+        "anexo_utilizado": anexo,
+        "fator_r_percentual": round(fator_r * 100, 2),
+        "faixa_enquadrada": faixa_numero,
+        "distribuicao": {
+            "irpj": round(imposto_final * p_ir, 2),
+            "csll": round(imposto_final * p_cs, 2),
+            "pis": round(imposto_final * p_pis, 2),
+            "cofins": round(imposto_final * p_cof, 2),
+            "cpp_inss": round(imposto_final * p_cpp, 2),
+            "iss_ou_icms": round(imposto_final * p_iss_icms, 2)
+        }
     }
