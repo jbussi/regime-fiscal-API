@@ -1,27 +1,29 @@
-# Usa uma imagem oficial leve do Python
+# Usa uma imagem oficial leve do Python baseada em Debian Linux
 FROM python:3.11-slim
 
-# Evita que o Python escreva arquivos .pyc e bufferize o output
+# Evita que o Python escreva arquivos .pyc no disco e bufferize o output de logs
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# Define o diretório de trabalho dentro do contêiner
+# Define o diretório de trabalho interno do contêiner
 WORKDIR /app
 
-# Instala dependências do sistema necessárias
+# Instala as dependências de sistema necessárias para compilar pacotes C (como dependências do SQLite/CORS se necessário)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Copia e instala as dependências do Python
+# Copia primeiro apenas o arquivo de dependências para aproveitar o cache de camadas do Docker
 COPY requirements.txt .
+
+# Instala as dependências do Python isoladas dentro do contêiner
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copia o restante do código do projeto
+# Copia todo o restante do código-fonte do projeto para dentro do contêiner
 COPY . .
 
-# Expõe a porta interna que o Uvicorn vai rodar
+# Informa ao Docker que a aplicação escuta na porta 8000 internamente
 EXPOSE 8000
 
-# Comando para rodar a aplicação em produção (sem --reload)
+# Comando padrão para iniciar o Uvicorn apontando para o app em modo de produção
 CMD ["uvicorn", "src.app:app", "--host", "0.0.0.0", "--port", "8000"]
