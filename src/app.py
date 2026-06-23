@@ -4,6 +4,9 @@ from fastapi.middleware.cors import CORSMiddleware
 import logging
 from fastapi.responses import RedirectResponse
 from fastapi.openapi.docs import get_redoc_html
+from fastapi.responses import FileResponse
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 
 # Importando os Schemas atualizados
 from src.models.fiscal_schemas import (
@@ -39,6 +42,8 @@ ERROS_DOCUMENTADOS = {
     500: {"model": HTTPErrorModel, "description": "Erro Interno do Servidor (Falha no banco ou processamento)"}
 }
 
+templates = Jinja2Templates(directory="src/templates")
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Erro Crítico 500 em {request.url.path}: {str(exc)}", exc_info=True)
@@ -49,10 +54,13 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 # --- ENDPOINTS COM TRATAMENTO DE ERRO DE NEGÓCIO ---
 
-@app.get("/", tags=["Status"], include_in_schema=False)
-def redirect_to_docs():
-    """Redireciona automaticamente a raiz para a documentação do Swagger."""
-    return RedirectResponse(url="/docs")
+@app.get("/", response_class=HTMLResponse)
+def carregar_dashboard(request: Request):
+    # Correção: passe o dicionário explicitamente dentro de context=...
+    return templates.TemplateResponse(
+        request=request, 
+        name="dashboard.html"
+    )
 
 @app.get("/redoc", tags=["Status"], include_in_schema=False)
 async def redoc_html():
