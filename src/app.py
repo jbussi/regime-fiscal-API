@@ -20,7 +20,7 @@ logger = logging.getLogger("LhamaFiscalAPI")
 app = FastAPI(
     title="Regime Fiscal API",
     description="Backend de alta performance com tratamento estrito de erros e validação de regras de negócio.",
-    version="0.0.0",
+    version="1.0.0",
     redoc_url=None
 )
 
