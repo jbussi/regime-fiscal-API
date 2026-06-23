@@ -1,0 +1,29 @@
+http:
+  middlewares:
+    limite-requisicoes:
+      rateLimit:
+        average: 100
+        burst: 50
+
+    compressao-gzip:
+      compress: {}
+
+    cabecalhos-flexiveis:
+      headers:
+        contentTypeNosniff: true
+        browserXssFilter: true
+        frameDeny: true
+        referrerPolicy: "strict-origin-when-cross-origin"
+        accessControlAllowOriginList:
+          - "*"
+        accessControlAllowMethods:
+          - "GET"
+          - "POST"
+          - "PUT"
+          - "DELETE"
+          - "OPTIONS"
+
+    limite-conexoes:
+      buffering:
+        maxRequestBodyBytes: 2097152
+        memRequestBodyBytes: 1048576
