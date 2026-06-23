@@ -1,10 +1,14 @@
-# src/database/connection.py
 import sqlite3
 from contextlib import contextmanager
 import os
 
-# Define o caminho padrão do banco de dados na raiz do projeto
-DB_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../database.db"))
+# 1. Encontra a pasta onde este arquivo está (src/database)
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+BASE_DIR = os.path.abspath(os.path.join(CURRENT_DIR, "../.."))
+
+# 2. Define o caminho definitivo na raiz do projeto
+DB_PATH = os.path.join(BASE_DIR, "database.db")
 
 @contextmanager
 def get_db_connection(db_path: str = DB_PATH):
@@ -13,14 +17,13 @@ def get_db_connection(db_path: str = DB_PATH):
     configura o retorno de linhas como dicionários e garante o fechamento
     seguro da conexão, executando rollback em caso de falhas.
     """
-    conn = sqlite3.connect(db_path, timeout=10.0) # Timeout evita travamento em requisições concorrentes
+    conn = sqlite3.connect(db_path, timeout=10.0) # Timeout evita travamento
     
-    # Configuração crucial para APIs: transforma tuplas do SQL em objetos fáceis de ler
-    # Ex: em vez de acessar row[0], você acessa row['aliquota_nominal'] -> Perfeito para gerar JSONs e gráficos
+    # Configuração crucial para APIs: transforma tuplas do SQL em objetos fáceis de ler (row['coluna'])
     conn.row_factory = sqlite3.Row
     
     try:
-        # Ativa o modo WAL para alta performance e suporte a dashboards em tempo real
+        # Ativa o modo WAL para alta performance e concorrência simultânea
         conn.execute("PRAGMA journal_mode=WAL;")
         conn.execute("PRAGMA foreign_keys=ON;") # Garante integridade referencial
         
