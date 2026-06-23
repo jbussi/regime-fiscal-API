@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lhama Fiscal - Analytics & Homologação</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-50 text-gray-800 min-h-screen">
+
+    <header class="bg-white border-b border-gray-200 py-4 px-6 sticky top-0 z-50 shadow-xs">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <span class="text-2xl">🦙</span>
+                <h1 class="text-xl font-bold tracking-tight text-gray-900">Lhama Fiscal <span class="text-sm font-normal text-gray-500">Analytics Suite</span></h1>
+            </div>
+            <nav class="flex space-x-4">
+                <button onclick="switchTab('tab-comparativo')" id="btn-tab-comparativo" class="text-sm font-medium px-3 py-2 rounded-lg bg-gray-100 text-gray-900 dynamic-tab-btn">Comparativo Geral</button>
+                <button onclick="switchTab('tab-endpoints')" id="btn-tab-endpoints" class="text-sm font-medium px-3 py-2 rounded-lg text-gray-500 hover:text-gray-900 dynamic-tab-btn">Endpoints Individuais</button>
+            </nav>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <div class="lg:col-span-1">
+            <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-xs sticky top-24">
+                <h2 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    📥 Dados Operacionais
+                </h2>
+                <form id="mainFiscalForm" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Receita Bruta Mensal (R$)</label>
+                        <input type="number" id="faturamento_mensal" value="60000" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-hidden" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Folha de Pagamento Mensal (R$)</label>
+                        <input type="number" id="folha_mensal" value="18000" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-hidden" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Faturamento Acumulado (12m - R$)</label>
+                        <input type="number" id="rbt12" value="720000" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-hidden" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Alíquota ISS Municipal (%)</label>
+                        <input type="number" id="aliquota_iss" value="3.0" step="0.1" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-hidden" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Anexo Padrão (Simples)</label>
+                        <select id="anexo_simples" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white focus:border-blue-500 focus:outline-hidden">
+                            <option value="ANEXO_III">Anexo III (Serviços / TI)</option>
+                            <option value="ANEXO_V">Anexo V (Intelectuais)</option>
+                            <option value="ANEXO_I">Anexo I (Comércio)</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="w-full bg-gray-900 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-gray-800 transition duration-150">
+                        Processar e Atualizar Gráficos
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="lg:col-span-2 space-y-6">
+            
+            <div id="loading" class="hidden bg-white border border-gray-200 rounded-xl p-8 text-center text-sm text-gray-500">
+                <span class="inline-block animate-spin mr-2">🔄</span> Calculando matrizes tributárias nas tabelas do SQLite...
+            </div>
+
+            <div id="tab-comparativo" class="tab-content space-y-6">
+                <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-xs">
+                    <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Carga Tributária Mensal Comparada</h3>
+                    <div class="relative h-64 w-full">
+                        <canvas id="chartComparativo"></canvas>
+                    </div>
+                </div>
+                
+                <div id="cardsComparativo" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+            </div>
+
+            <div id="tab-endpoints" class="tab-content hidden space-y-6">
+                <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-xs">
+                    <h3 class="text-md font-semibold text-gray-900 mb-3">Auditoria de Payload por Rota</h3>
+                    <p class="text-xs text-gray-500 mb-4">Simulação do comportamento isolado de cada endpoint nativo da aplicação.</p>
+                    
+                    <div class="space-y-4">
+                        <div class="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-xs font-mono bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold">POST /api/v1/simulacao/simples-nacional</span>
+                                <span id="status-simples" class="text-xs text-gray-400">Não testado</span>
+                            </div>
+                            <pre id="json-simples" class="text-xs bg-gray-900 text-green-400 p-2 rounded max-h-32 overflow-y-auto font-mono">{}</pre>
+                        </div>
+
+                        <div class="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-xs font-mono bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold">POST /api/v1/simulacao/lucro-presumido</span>
+                                <span id="status-presumido" class="text-xs text-gray-400">Não testado</span>
+                            </div>
+                            <pre id="json-presumido" class="text-xs bg-gray-900 text-green-400 p-2 rounded max-h-32 overflow-y-auto font-mono">{}</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        const API_BASE_URL = window.location.origin;
+        let chartInstancia = null;
+
+        // Gerenciador de Abas do Painel
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById(tabId).classList.remove('hidden');
+            
+            document.querySelectorAll('.dynamic-tab-btn').forEach(btn => {
+                btn.classList.remove('bg-gray-900', 'text-white', 'bg-gray-100', 'text-gray-900');
+                btn.classList.add('text-gray-500');
+            });
+            const activeBtn = document.getElementById(`btn-${tabId}`);
+            activeBtn.classList.remove('text-gray-500');
+            activeBtn.classList.add('bg-gray-900', 'text-white');
+        }
+
+        // Manipulador do Formulário Principal
+        document.getElementById('mainFiscalForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            document.getElementById('loading').classList.remove('hidden');
+            
+            const payload = {
+                faturamento_mensal: parseFloat(document.getElementById('faturamento_mensal').value),
+                folha_mensal: parseFloat(document.getElementById('folha_mensal').value),
+                rbt12: parseFloat(document.getElementById('rbt12').value),
+                aliquota_iss: parseFloat(document.getElementById('aliquota_iss').value) / 100,
+                anexo_simples: document.getElementById('anexo_simples').value
+            };
+
+            // Executa requisições em paralelo para testar múltiplos endpoints simultaneamente
+            await Promise.all([
+                processarComparativo(payload),
+                testarEndpointIsolado('/api/v1/simulacao/simples-nacional', payload, 'json-simples', 'status-simples'),
+                testarEndpointIsolado('/api/v1/simulacao/lucro-presumido', payload, 'json-presumido', 'status-presumido')
+            ]);
+
+            document.getElementById('loading').classList.add('hidden');
+        });
+
+        // 1. Processamento da Rota Comparativa + Plotagem do Gráfico
+        async function processarComparativo(payload) {
+            const cardsContainer = document.getElementById('cardsComparativo');
+            cardsContainer.innerHTML = '';
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/v1/simulacao/comparativo`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+
+                if (!response.ok) {
+                    cardsContainer.innerHTML = `<div class="col-span-2 bg-red-50 text-red-700 p-4 rounded-xl border border-red-200 text-sm">${data.detail || 'Erro na rota analítica.'}</div>`;
+                    return;
+                }
+
+                renderizarGrafico(data.regimes);
+                renderizarCards(data.regimes, cardsContainer);
+
+            } catch (err) {
+                cardsContainer.innerHTML = `<div class="col-span-2 bg-amber-50 text-amber-700 p-4 rounded-xl border border-amber-200 text-sm">Falha de conexão com a API de comparação.</div>`;
+            }
+        }
+
+        // 2. Teste e Auditoria de Endpoints Isolados do Backend
+        async function testarEndpointIsolado(endpoint, payload, preId, statusId) {
+            const pre = document.getElementById(preId);
+            const statusSpan = document.getElementById(statusId);
+            try {
+                const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+                
+                statusSpan.textContent = `Status: ${response.status}`;
+                statusSpan.className = response.ok ? 'text-xs text-green-600 font-semibold' : 'text-xs text-red-600 font-semibold';
+                pre.textContent = JSON.stringify(data, null, 2);
+            } catch (err) {
+                statusSpan.textContent = 'Erro de Conexão';
+                statusSpan.className = 'text-xs text-amber-600 font-semibold';
+                pre.textContent = err.message;
+            }
+        }
+
+        // 3. Renderização Dinâmica do Chart.js
+        function renderizarGrafico(regimes) {
+            const ctx = document.getElementById('chartComparativo').getContext('2d');
+            
+            // Extrai as métricas para as coleções do Chart.js
+            const labels = regimes.map(r => r.nome);
+            const valores = regimes.map(r => r.imposto_total);
+            const cores = regimes.map(r => r.vencedor ? 'rgba(34, 197, 94, 0.85)' : 'rgba(156, 163, 175, 0.7)');
+            const bordas = regimes.map(r => r.vencedor ? 'rgb(34, 197, 94)' : 'rgb(156, 163, 175)');
+
+            // Destrói gráfico anterior se existir para evitar vazamento de memória e bugs visuais
+            if (chartInstancia) {
+                chartInstancia.destroy();
+            }
+
+            chartInstancia = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Imposto Total Apurado (R$)',
+                        data: valores,
+                        backgroundColor: cores,
+                        borderColor: bordas,
+                        borderWidth: 1,
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return 'R$ ' + value.toLocaleString('pt-BR');
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 4. Renderização dos Cards Informativos de Suporte
+        function renderizarCards(regimes, container) {
+            regimes.forEach(regime => {
+                const div = document.createElement('div');
+                div.className = `p-5 rounded-xl border ${regime.vencedor ? 'bg-green-50 border-green-200' : 'bg-white border-gray-200'} shadow-2xs`;
+                div.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h4 class="font-bold text-sm text-gray-900">${regime.nome}</h4>
+                            <p class="text-xs text-gray-500 mt-0.5">Alíquota Efetiva: ${(regime.aliquota_efetiva * 100).toFixed(2)}%</p>
+                        </div>
+                        ${regime.vencedor ? '<span class="bg-green-600 text-white text-[9px] uppercase font-bold px-2 py-0.5 rounded-sm">Melhor Cenário</span>' : ''}
+                    </div>
+                    <div class="mt-4 text-left">
+                        <span class="text-xs text-gray-400 block">Total do Período</span>
+                        <span class="text-lg font-mono font-bold text-gray-900">R$ ${regime.imposto_total.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</span>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+    </script>
+</body>
+</html>
