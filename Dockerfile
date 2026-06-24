@@ -8,7 +8,7 @@ ENV PYTHONUNBUFFERED=1
 # Define o diretório de trabalho interno do contêiner
 WORKDIR /app
 
-# Instala as dependências de sistema necessárias para compilar pacotes C (como dependências do SQLite/CORS se necessário)
+# Instala as dependências de sistema necessárias para compilar pacotes C
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
@@ -22,8 +22,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copia todo o restante do código-fonte do projeto para dentro do contêiner
 COPY . .
 
-# Informa ao Docker que a aplicação escuta na porta 8000 internamente
-EXPOSE 8000
-
-# Comando padrão para iniciar o Uvicorn apontando para o app em modo de produção
-CMD ["uvicorn", "src.app:app", "--host", "0.0.0.0", "--port", "8000"]
+# COMANDO ATUALIZADO: Suporta a porta do Railway ou cai para 8000 se rodar local
+CMD ["sh", "-c", "uvicorn src.app:app --host 0.0.0.0 --port ${PORT:-8000}"]

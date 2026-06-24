@@ -4,7 +4,11 @@ services:
     container_name: regime_fiscal_api
     restart: always
     ports:
-      - "80:8000" # Mapeia a porta 80 da sua máquina para a porta 8000 interna do FastAPI
+      # Modificado para usar a variável PORT injetada pela nuvem. 
+      # Se rodar local e a variável estiver vazia, ele usa a porta 8000.
+      - "${PORT:-8000}:${PORT:-8000}"
+    environment:
+      - PORT=${PORT:-8000}
     volumes:
       - ./database.db:/app/database.db
     networks:
