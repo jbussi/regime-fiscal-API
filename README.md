@@ -92,7 +92,8 @@ O ecossistema de rotas foi projetado seguindo as melhores práticas RESTful, uti
     "lucro_presumido": { "imposto_final": 14415.25, "aliquota_efetiva_calculada": 18.01 },
     "lucro_real": { "imposto_final": 16200.00, "aliquota_efetiva_calculada": 20.25 }
   }
-  #### 2. Isolação das Engines (Módulos de Auditoria Técnico-Fiscal)
+
+#### 2. Isolação das Engines (Módulos de Auditoria Técnico-Fiscal)
 
 Endpoints especializados que alimentam as abas de detalhamento técnico do sistema, permitindo auditar as memórias de cálculo de forma isolada.
 
