@@ -1,0 +1,19 @@
+services:
+  api:
+    build: .
+    container_name: regime_fiscal_api
+    restart: always
+    ports:
+      # Modificado para usar a variável PORT injetada pela nuvem. 
+      # Se rodar local e a variável estiver vazia, ele usa a porta 8000.
+      - "${PORT:-8000}:${PORT:-8000}"
+    environment:
+      - PORT=${PORT:-8000}
+    volumes:
+      - ./database.db:/app/database.db
+    networks:
+      - rede_local
+
+networks:
+  rede_local:
+    driver: bridge

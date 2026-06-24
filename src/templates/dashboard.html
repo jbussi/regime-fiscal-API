@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Regime Fiscal - Analytics & Homologação</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-50 text-gray-800 min-h-screen">
+
+    <header class="bg-white border-b border-gray-200 py-4 px-6 sticky top-0 z-50 shadow-xs">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <span class="text-2xl"></span>
+                <h1 class="text-xl font-bold tracking-tight text-gray-900">Regime Fiscal <span class="text-sm font-normal text-gray-500">Analytics Suite</span></h1>
+            </div>
+            <nav class="flex space-x-4">
+                <button onclick="switchTab('tab-comparativo')" id="btn-tab-comparativo" class="text-sm font-medium px-3 py-2 rounded-lg bg-gray-900 text-white dynamic-tab-btn">Comparativo Geral</button>
+                <button onclick="switchTab('tab-endpoints')" id="btn-tab-endpoints" class="text-sm font-medium px-3 py-2 rounded-lg text-gray-500 hover:text-gray-900 dynamic-tab-btn">Endpoints Individuais</button>
+            </nav>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <div class="lg:col-span-1">
+            <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-xs sticky top-24">
+                <h2 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    📥 Dados Operacionais
+                </h2>
+                <form id="mainFiscalForm" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Faturamento Serviços Bruto (R$)</label>
+                        <input type="number" id="faturamento_servicos" value="60000" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-hidden" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Folha de Pagamento Mensal Atual (R$)</label>
+                        <input type="number" id="folha_mensal_atual" value="15000" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-hidden" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Faturamento Acumulado (RBT12 - R$)</label>
+                        <input type="number" id="rbt12" value="720000" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-hidden" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Folha Acumulada (12m - R$)</label>
+                        <input type="number" id="folha_acumulada_12m" value="180000" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-hidden" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Alíquota ISS Municipal (%)</label>
+                        <input type="number" id="aliquota_iss_local" value="3.0" step="0.1" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-hidden" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Anexo Escolhido (Simples)</label>
+                        <select id="anexo_escolhido" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white focus:border-blue-500 focus:outline-hidden">
+                            <option value="ANEXO_III">Anexo III (Serviços / TI)</option>
+                            <option value="ANEXO_V">Anexo V (Intelectuais)</option>
+                            <option value="ANEXO_I">Anexo I (Comércio)</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="w-full bg-gray-900 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-gray-800 transition duration-150 cursor-pointer">
+                        Processar e Atualizar Gráficos
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="lg:col-span-2 space-y-6">
+            
+            <div id="loading" class="hidden bg-white border border-gray-200 rounded-xl p-8 text-center text-sm text-gray-500 animate-pulse">
+                <span class="inline-block animate-spin mr-2">🔄</span> Processando inteligência de cenários e batendo schemas fiscais...
+            </div>
+
+            <div id="tab-comparativo" class="tab-content space-y-6">
+                <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-xs">
+                    <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Carga Tributária Mensal Comparada</h3>
+                    <div class="relative h-64 w-full">
+                        <canvas id="chartComparativo"></canvas>
+                    </div>
+                </div>
+                
+                <div id="insightContainer" class="hidden p-4 rounded-xl border border-blue-200 bg-blue-50 text-sm text-blue-900 font-medium"></div>
+                
+                <div id="cardsComparativo" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
+            </div>
+
+            <div id="tab-endpoints" class="tab-content hidden space-y-6">
+                <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-xs">
+                    <h3 class="text-md font-semibold text-gray-900 mb-3">Auditoria de Payload por Rota</h3>
+                    <p class="text-xs text-gray-500 mb-4">Simulação direta do comportamento de validação isolada de cada microsserviço.</p>
+                    
+                    <div class="space-y-4">
+                        <div class="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-xs font-mono bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold">POST /api/simular/simples</span>
+                                <span id="status-simples" class="text-xs text-gray-400">Não testado</span>
+                            </div>
+                            <pre id="json-simples" class="text-xs bg-gray-900 text-green-400 p-2 rounded max-h-32 overflow-y-auto font-mono">{}</pre>
+                        </div>
+
+                        <div class="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-xs font-mono bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold">POST /api/simular/presumido</span>
+                                <span id="status-presumido" class="text-xs text-gray-400">Não testado</span>
+                            </div>
+                            <pre id="json-presumido" class="text-xs bg-gray-900 text-green-400 p-2 rounded max-h-32 overflow-y-auto font-mono">{}</pre>
+                        </div>
+
+                        <div class="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-xs font-mono bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold">POST /api/simular/real</span>
+                                <span id="status-real" class="text-xs text-gray-400">Não testado</span>
+                            </div>
+                            <pre id="json-real" class="text-xs bg-gray-900 text-green-400 p-2 rounded max-h-32 overflow-y-auto font-mono">{}</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        const API_BASE_URL = window.location.origin;
+        let chartInstancia = null;
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById(tabId).classList.remove('hidden');
+            
+            document.querySelectorAll('.dynamic-tab-btn').forEach(btn => {
+                btn.classList.remove('bg-gray-900', 'text-white', 'bg-gray-100', 'text-gray-900');
+                btn.classList.add('text-gray-500');
+            });
+            const activeBtn = document.getElementById(`btn-${tabId}`);
+            activeBtn.classList.remove('text-gray-500');
+            activeBtn.classList.add('bg-gray-900', 'text-white');
+        }
+
+        document.getElementById('mainFiscalForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            document.getElementById('loading').classList.remove('hidden');
+            
+            // Payload montado com as chaves exatas do CenarioSimulacaoInput
+            const payload = {
+                tipo_atividade: "SERVICOS_GERAIS",
+                faturamento_servicos: parseFloat(document.getElementById('faturamento_servicos').value),
+                faturamento_comercio: 0.0,
+                faturamento_acumulado_ano: parseFloat(document.getElementById('faturamento_servicos').value) * 6, // Projeção simples ano
+                aliquota_iss_local: parseFloat(document.getElementById('aliquota_iss_local').value) / 100,
+                anexo_chosen: document.getElementById('anexo_escolhido').value, // Mapeado no backend como anexo_escolhido
+                anexo_escolhido: document.getElementById('anexo_escolhido').value,
+                rbt12: parseFloat(document.getElementById('rbt12').value),
+                folha_acumulada_12m: parseFloat(document.getElementById('folha_acumulada_12m').value),
+                folha_mensal_atual: parseFloat(document.getElementById('folha_mensal_atual').value),
+                opex_dedutivel: 0.0,
+                custos_com_direito_a_credito: 0.0,
+                compras_capex_computadores: 0.0
+            };
+
+            // Executa todas as requisições em paralelo nas rotas reais do seu app.py
+            await Promise.all([
+                processarMelhorCenario(payload),
+                testarEndpointIsolado('/api/simular/simples', payload, 'json-simples', 'status-simples'),
+                testarEndpointIsolado('/api/simular/presumido', payload, 'json-presumido', 'status-presumido'),
+                testarEndpointIsolado('/api/simular/real', payload, 'json-real', 'status-real')
+            ]);
+
+            document.getElementById('loading').classList.add('hidden');
+        });
+
+        // Consome a rota /api/simular/best do seu app.py
+        async function processarMelhorCenario(payload) {
+            const cardsContainer = document.getElementById('cardsComparativo');
+            const insightContainer = document.getElementById('insightContainer');
+            cardsContainer.innerHTML = '';
+            insightContainer.classList.add('hidden');
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/simular/best`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+
+                if (!response.ok) {
+                    cardsContainer.innerHTML = `<div class="col-span-3 bg-red-50 text-red-700 p-4 rounded-xl border border-red-200 text-sm">${data.detail || 'Erro na validação do motor fiscal.'}</div>`;
+                    return;
+                }
+
+                // Renderiza o insight e monta a lista de regimes para renderização visual
+                insightContainer.textContent = `💡 ${data.insight_planejamento}`;
+                insightContainer.classList.remove('hidden');
+
+                const listaRegimes = [
+                    { nome: "Simples Nacional", valor: data.comparativo_rapido.simples_nacional, vencedor: data.vencedor.regime === "Simples Nacional", aliquota: data.vencedor.regime === "Simples Nacional" ? data.vencedor.aliquota_efetiva : null },
+                    { nome: "Lucro Presumido", valor: data.comparativo_rapido.lucro_presumido, vencedor: data.vencedor.regime === "Lucro Presumido", aliquota: data.vencedor.regime === "Lucro Presumido" ? data.vencedor.aliquota_efetiva : null },
+                    { nome: "Lucro Real", valor: data.comparativo_rapido.lucro_real, vencedor: data.vencedor.regime === "Lucro Real", aliquota: data.vencedor.regime === "Lucro Real" ? data.vencedor.aliquota_efetiva : null }
+                ];
+
+                renderizarGrafico(listaRegimes);
+                renderizarCards(listaRegimes, cardsContainer);
+
+            } catch (err) {
+                cardsContainer.innerHTML = `<div class="col-span-3 bg-amber-50 text-amber-700 p-4 rounded-xl border border-amber-200 text-sm">Falha crítica ao conectar com a API de decisão de regimes.</div>`;
+            }
+        }
+
+        async function testarEndpointIsolado(endpoint, payload, preId, statusId) {
+            const pre = document.getElementById(preId);
+            const statusSpan = document.getElementById(statusId);
+            try {
+                const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+                
+                statusSpan.textContent = `HTTP ${response.status}`;
+                statusSpan.className = response.ok ? 'text-xs text-green-600 font-semibold' : 'text-xs text-red-600 font-semibold';
+                pre.textContent = JSON.stringify(data, null, 2);
+            } catch (err) {
+                statusSpan.textContent = 'Erro Conexão';
+                statusSpan.className = 'text-xs text-amber-600 font-semibold';
+                pre.textContent = err.message;
+            }
+        }
+
+        function renderizarGrafico(regimes) {
+            const ctx = document.getElementById('chartComparativo').getContext('2d');
+            
+            if (chartInstancia) {
+                chartInstancia.destroy();
+            }
+
+            chartInstancia = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: regimes.map(r => r.nome),
+                    datasets: [{
+                        data: regimes.map(r => r.valor),
+                        backgroundColor: regimes.map(r => r.vencedor ? 'rgba(34, 197, 94, 0.85)' : 'rgba(156, 163, 175, 0.5)'),
+                        borderColor: regimes.map(r => r.vencedor ? 'rgb(34, 197, 94)' : 'rgb(156, 163, 175)'),
+                        borderWidth: 1.5,
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { callback: (value) => 'R$ ' + value.toLocaleString('pt-BR') }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderizarCards(regimes, container) {
+            regimes.forEach(regime => {
+                const div = document.createElement('div');
+                div.className = `p-5 rounded-xl border ${regime.vencedor ? 'bg-green-50 border-green-200' : 'bg-white border-gray-200'} shadow-2xs`;
+                div.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h4 class="font-bold text-sm text-gray-900">${regime.nome}</h4>
+                            <p class="text-xs text-gray-500 mt-0.5">${regime.aliquota ? `Efetiva: ${regime.aliquota.toFixed(2)}%` : 'Simulação Padrão'}</p>
+                        </div>
+                        ${regime.vencedor ? '<span class="bg-green-600 text-white text-[9px] uppercase font-bold px-2 py-0.5 rounded-xs">Melhor Opção</span>' : ''}
+                    </div>
+                    <div class="mt-4">
+                        <span class="text-xs text-gray-400 block">Imposto Estimado</span>
+                        <span class="text-lg font-mono font-bold text-gray-900">
+                            ${regime.valor === null || regime.valor === undefined || isNaN(regime.valor) ? 'N/A' : 'R$ ' + regime.valor.toLocaleString('pt-BR', {minimumFractionDigits: 2})}
+                        </span>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+    </script>
+</body>
+</html>

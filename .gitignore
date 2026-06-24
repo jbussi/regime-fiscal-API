@@ -1,0 +1,73 @@
+# === Python & Ambientes Virtuais ===
+.venv/
+venv/
+env/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# === Caches do Python e do Pytest ===
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.tox/
+.nox/
+.coverage
+.cache
+htmlcov/
+.birds/
+
+# === Anaconda / Miniconda ===
+.conda/
+conda-bld/
+
+# === Playwright & Testes de Interface ===
+.playwright/
+# Evita salvar relatórios ou prints de tela de testes que falharam
+playwright-report/
+test-results/
+
+# === Docker ===
+# Se você tiver arquivos de log gerados localmente pelo compose
+.docker/
+*.log
+
+# === Configurações de IDEs e Editores ===
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+
+# === Arquivos do Sistema Operacional ===
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# === Variáveis de Ambiente (Segurança) ===
+.env
+.env.*
+!.env.example
